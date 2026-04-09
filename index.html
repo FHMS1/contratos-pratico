@@ -1,0 +1,693 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Êxito Contábil — Gerador de Contratos</title>
+
+  <!-- Google Fonts: Syne (display) + DM Sans (corpo) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,300&display=swap" rel="stylesheet" />
+
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+
+  <!-- Bibliotecas core (CDN com fallback local via /libs) -->
+  <!-- PizZip: necessário para docxtemplater ler arquivos .docx -->
+  <script src="https://unpkg.com/pizzip@3.1.4/dist/pizzip.js"></script>
+  <!-- Docxtemplater: substitui {{placeholders}} no .docx mantendo formatação -->
+  <script src="https://unpkg.com/docxtemplater@3.42.1/build/docxtemplater.js"></script>
+  <!-- SheetJS: lê planilhas .xlsx e .csv no browser -->
+  <script src="https://cdn.sheetjs.com/xlsx-0.20.0/package/dist/xlsx.full.min.js"></script>
+  <!-- JSZip: empacota múltiplos .docx em um arquivo .zip para download em lote -->
+  <script src="https://unpkg.com/jszip@3.10.1/dist/jszip.min.js"></script>
+  <!-- FileSaver: dispara download de Blob no browser de forma confiável -->
+  <script src="https://unpkg.com/file-saver@2.0.5/dist/FileSaver.min.js"></script>
+
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+
+  <!-- ══════════════════════════════════════════════
+       SIDEBAR DE NAVEGAÇÃO
+  ══════════════════════════════════════════════ -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-brand">
+      <div class="brand-icon">
+        <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
+          <rect width="28" height="28" rx="8" fill="var(--accent)"/>
+          <path d="M7 14h14M7 9h9M7 19h11" stroke="white" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+      </div>
+      <div class="brand-text">
+        <span class="brand-name">Êxito</span>
+        <span class="brand-sub">Contábil</span>
+      </div>
+    </div>
+
+    <nav class="sidebar-nav">
+      <button class="nav-item active" data-tab="individual" onclick="switchTab('individual')">
+        <i data-lucide="file-text"></i>
+        <span>Contrato Individual</span>
+      </button>
+      <button class="nav-item" data-tab="lote" onclick="switchTab('lote')">
+        <i data-lucide="layers"></i>
+        <span>Importação em Lote</span>
+      </button>
+      <button class="nav-item" data-tab="preview" onclick="switchTab('preview')">
+        <i data-lucide="eye"></i>
+        <span>Pré-visualização</span>
+      </button>
+      <button class="nav-item" data-tab="planilha" onclick="switchTab('planilha')">
+        <i data-lucide="table"></i>
+        <span>Modelo da Planilha</span>
+      </button>
+      <button class="nav-item" data-tab="config" onclick="switchTab('config')">
+        <i data-lucide="settings"></i>
+        <span>Configurações</span>
+      </button>
+    </nav>
+
+    <div class="sidebar-footer">
+      <span>v1.0.0 — MVP</span>
+    </div>
+  </aside>
+
+  <!-- ══════════════════════════════════════════════
+       ÁREA PRINCIPAL
+  ══════════════════════════════════════════════ -->
+  <main class="main-content">
+
+    <!-- Topbar -->
+    <header class="topbar">
+      <div class="topbar-left">
+        <button class="topbar-menu-btn" onclick="toggleSidebar()" title="Menu">
+          <i data-lucide="menu"></i>
+        </button>
+        <h1 class="topbar-title" id="topbar-title">Contrato Individual</h1>
+      </div>
+      <div class="topbar-right">
+        <div class="status-badge" id="status-badge">
+          <i data-lucide="circle-check"></i>
+          <span>Pronto</span>
+        </div>
+      </div>
+    </header>
+
+    <!-- ══════════════════════
+         ABA: INDIVIDUAL
+    ══════════════════════ -->
+    <section class="tab-content active" id="tab-individual">
+      <div class="section-header">
+        <div>
+          <h2>Novo Contrato</h2>
+          <p class="section-desc">Preencha os dados do cliente para gerar o contrato automaticamente.</p>
+        </div>
+        <div class="header-actions">
+          <button class="btn btn-outline" onclick="previewContrato()">
+            <i data-lucide="eye"></i> Visualizar
+          </button>
+          <button class="btn btn-primary" onclick="gerarContratoIndividual()">
+            <i data-lucide="download"></i> Gerar Contrato
+          </button>
+        </div>
+      </div>
+
+      <form id="form-individual" novalidate>
+
+        <!-- BLOCO 1: Dados da Contratante -->
+        <div class="form-card">
+          <div class="form-card-header">
+            <div class="form-card-icon"><i data-lucide="building-2"></i></div>
+            <div>
+              <h3>Dados da Contratante</h3>
+              <p>Razão social, endereço e representante legal</p>
+            </div>
+          </div>
+
+          <div class="form-grid">
+            <div class="field field-lg">
+              <label for="razao_social">Razão Social / Nome <span class="req">*</span></label>
+              <input type="text" id="razao_social" name="razao_social" placeholder="Ex: EMPRESA EXEMPLO LTDA" autocomplete="off" />
+              <span class="field-error" id="err-razao_social"></span>
+            </div>
+            <div class="field">
+              <label for="nome_fantasia">Nome Fantasia</label>
+              <input type="text" id="nome_fantasia" name="nome_fantasia" placeholder="Opcional" />
+            </div>
+            <div class="field">
+              <label for="cnpj">CNPJ <span class="req">*</span></label>
+              <input type="text" id="cnpj" name="cnpj" placeholder="00.000.000/0001-00" maxlength="18" />
+              <span class="field-error" id="err-cnpj"></span>
+            </div>
+            <div class="field">
+              <label for="email">E-mail <span class="req">*</span></label>
+              <input type="email" id="email" name="email" placeholder="contato@empresa.com.br" />
+              <span class="field-error" id="err-email"></span>
+            </div>
+            <div class="field">
+              <label for="telefone">Telefone / WhatsApp</label>
+              <input type="text" id="telefone" name="telefone" placeholder="(83) 99999-0000" />
+            </div>
+          </div>
+
+          <!-- Endereço com busca automática por CEP -->
+          <div class="form-grid">
+            <div class="field field-sm">
+              <label for="cep">CEP <span class="req">*</span></label>
+              <div class="input-with-action">
+                <input type="text" id="cep" name="cep" placeholder="58000-000" maxlength="9" oninput="maskCEP(this)" onblur="buscarCEP()" />
+                <button type="button" class="input-btn" onclick="buscarCEP()" title="Buscar CEP">
+                  <i data-lucide="search"></i>
+                </button>
+              </div>
+              <span class="field-error" id="err-cep"></span>
+            </div>
+            <div class="field field-lg">
+              <label for="logradouro">Logradouro <span class="req">*</span></label>
+              <input type="text" id="logradouro" name="logradouro" placeholder="Rua, Avenida, etc." />
+              <span class="field-error" id="err-logradouro"></span>
+            </div>
+            <div class="field field-sm">
+              <label for="numero">Número <span class="req">*</span></label>
+              <input type="text" id="numero" name="numero" placeholder="123" />
+              <span class="field-error" id="err-numero"></span>
+            </div>
+            <div class="field">
+              <label for="complemento">Complemento</label>
+              <input type="text" id="complemento" name="complemento" placeholder="Sala 01, Bloco B..." />
+            </div>
+            <div class="field">
+              <label for="bairro">Bairro <span class="req">*</span></label>
+              <input type="text" id="bairro" name="bairro" placeholder="Centro" />
+              <span class="field-error" id="err-bairro"></span>
+            </div>
+            <div class="field">
+              <label for="cidade">Cidade <span class="req">*</span></label>
+              <input type="text" id="cidade" name="cidade" placeholder="João Pessoa" />
+              <span class="field-error" id="err-cidade"></span>
+            </div>
+            <div class="field field-xs">
+              <label for="uf">UF <span class="req">*</span></label>
+              <input type="text" id="uf" name="uf" placeholder="PB" maxlength="2" oninput="this.value=this.value.toUpperCase()" />
+              <span class="field-error" id="err-uf"></span>
+            </div>
+          </div>
+
+          <!-- Representante Legal -->
+          <div class="subsection-label">Representante Legal</div>
+          <div class="form-grid">
+            <div class="field field-lg">
+              <label for="representante_nome">Nome do Representante <span class="req">*</span></label>
+              <input type="text" id="representante_nome" name="representante_nome" placeholder="Nome completo" />
+              <span class="field-error" id="err-representante_nome"></span>
+            </div>
+            <div class="field">
+              <label for="representante_cpf">CPF do Representante <span class="req">*</span></label>
+              <input type="text" id="representante_cpf" name="representante_cpf" placeholder="000.000.000-00" maxlength="14" />
+              <span class="field-error" id="err-representante_cpf"></span>
+            </div>
+            <div class="field">
+              <label for="representante_cargo">Cargo / Qualificação</label>
+              <input type="text" id="representante_cargo" name="representante_cargo" placeholder="Sócio Administrador, Diretor..." />
+            </div>
+          </div>
+        </div>
+
+        <!-- BLOCO 2: Dados Financeiros do Contrato -->
+        <div class="form-card">
+          <div class="form-card-header">
+            <div class="form-card-icon"><i data-lucide="dollar-sign"></i></div>
+            <div>
+              <h3>Honorários e Condições Financeiras</h3>
+              <p>Valores, vencimento, reajuste e penalidades</p>
+            </div>
+          </div>
+
+          <div class="form-grid">
+            <div class="field">
+              <label for="honorarios_mensais">Honorários Mensais (R$) <span class="req">*</span></label>
+              <input type="text" id="honorarios_mensais" name="honorarios_mensais" placeholder="R$ 0,00" oninput="maskMoeda(this)" />
+              <span class="field-error" id="err-honorarios_mensais"></span>
+            </div>
+            <div class="field field-sm">
+              <label for="dia_vencimento">Dia de Vencimento <span class="req">*</span></label>
+              <input type="number" id="dia_vencimento" name="dia_vencimento" min="1" max="31" placeholder="10" />
+              <span class="field-error" id="err-dia_vencimento"></span>
+            </div>
+            <div class="field field-sm">
+              <label for="multa_atraso">Multa por Atraso (%)</label>
+              <input type="text" id="multa_atraso" name="multa_atraso" placeholder="2%" value="2%" />
+            </div>
+            <div class="field field-sm">
+              <label for="juros_atraso">Juros por Atraso</label>
+              <input type="text" id="juros_atraso" name="juros_atraso" placeholder="1% ao mês" value="1% ao mês" />
+            </div>
+            <div class="field field-sm">
+              <label for="prazo_suspensao">Prazo para Suspensão (dias)</label>
+              <input type="number" id="prazo_suspensao" name="prazo_suspensao" placeholder="30" value="30" />
+            </div>
+            <div class="field field-sm">
+              <label for="quantidade_mensalidades_mora">Qtd. Mensalidades p/ Rescisão</label>
+              <input type="number" id="quantidade_mensalidades_mora" name="quantidade_mensalidades_mora" placeholder="3" value="3" />
+            </div>
+          </div>
+
+          <div class="subsection-label">Reajuste Anual</div>
+          <div class="form-grid">
+            <div class="field field-sm">
+              <label for="percentual_reajuste_minimo">Piso Mínimo de Reajuste (%)</label>
+              <input type="text" id="percentual_reajuste_minimo" name="percentual_reajuste_minimo" placeholder="7%" value="7%" />
+            </div>
+            <div class="field field-sm">
+              <label for="indice_reajuste">Índice de Reajuste</label>
+              <input type="text" id="indice_reajuste" name="indice_reajuste" placeholder="IPCA" value="IPCA" />
+            </div>
+          </div>
+
+          <div class="subsection-label">13ª Parcela</div>
+          <div class="form-grid">
+            <div class="field field-sm">
+              <label for="dia_decimo_terceiro">Dia de Cobrança da 13ª</label>
+              <input type="number" id="dia_decimo_terceiro" name="dia_decimo_terceiro" placeholder="20" value="20" min="1" max="31" />
+            </div>
+            <div class="field">
+              <label for="proporcional_decimo_terceiro">Cobrança Proporcional da 13ª?</label>
+              <select id="proporcional_decimo_terceiro" name="proporcional_decimo_terceiro">
+                <option value="sim">Sim — cobrar proporcional ao período</option>
+                <option value="nao">Não — cobrar integral</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <!-- BLOCO 3: Vigência e Assinatura -->
+        <div class="form-card">
+          <div class="form-card-header">
+            <div class="form-card-icon"><i data-lucide="calendar"></i></div>
+            <div>
+              <h3>Vigência, Rescisão e Assinatura</h3>
+              <p>Datas e foro contratual</p>
+            </div>
+          </div>
+
+          <div class="form-grid">
+            <div class="field">
+              <label for="prazo_vigencia">Prazo Inicial de Vigência</label>
+              <input type="text" id="prazo_vigencia" name="prazo_vigencia" placeholder="12 (doze) meses" value="12 (doze) meses" />
+            </div>
+            <div class="field field-sm">
+              <label for="prazo_rescisao">Aviso Prévio para Rescisão</label>
+              <input type="text" id="prazo_rescisao" name="prazo_rescisao" placeholder="30 (trinta) dias" value="30 (trinta) dias" />
+            </div>
+            <div class="field">
+              <label for="data_assinatura">Data da Assinatura <span class="req">*</span></label>
+              <input type="date" id="data_assinatura" name="data_assinatura" />
+              <span class="field-error" id="err-data_assinatura"></span>
+            </div>
+            <div class="field">
+              <label for="cidade_assinatura">Cidade da Assinatura</label>
+              <input type="text" id="cidade_assinatura" name="cidade_assinatura" placeholder="João Pessoa" value="João Pessoa" />
+            </div>
+            <div class="field field-xs">
+              <label for="uf_assinatura">UF</label>
+              <input type="text" id="uf_assinatura" name="uf_assinatura" placeholder="PB" value="PB" maxlength="2" oninput="this.value=this.value.toUpperCase()" />
+            </div>
+            <div class="field field-lg">
+              <label for="foro">Foro Contratual</label>
+              <input type="text" id="foro" name="foro" placeholder="Comarca de João Pessoa/PB" value="Comarca de João Pessoa/PB" />
+            </div>
+          </div>
+        </div>
+
+        <!-- BLOCO 4: Perfil Operacional -->
+        <div class="form-card">
+          <div class="form-card-header">
+            <div class="form-card-icon"><i data-lucide="briefcase"></i></div>
+            <div>
+              <h3>Perfil Operacional do Cliente</h3>
+              <p>Regime tributário, DP e certificado digital</p>
+            </div>
+          </div>
+
+          <div class="form-grid">
+            <div class="field">
+              <label for="regime_tributario">Regime Tributário <span class="req">*</span></label>
+              <select id="regime_tributario" name="regime_tributario">
+                <option value="">Selecione...</option>
+                <option value="Simples Nacional">Simples Nacional</option>
+                <option value="Lucro Presumido">Lucro Presumido</option>
+                <option value="Lucro Real">Lucro Real</option>
+                <option value="MEI">MEI</option>
+              </select>
+              <span class="field-error" id="err-regime_tributario"></span>
+            </div>
+            <div class="field field-lg">
+              <label for="atividade_principal">Atividade Principal (CNAE)</label>
+              <input type="text" id="atividade_principal" name="atividade_principal" placeholder="Ex: Comércio varejista de alimentos" />
+            </div>
+          </div>
+
+          <!-- Toggles condicionais -->
+          <div class="form-grid">
+            <div class="field">
+              <label for="incluir_dp">Inclui Departamento Pessoal no escopo?</label>
+              <select id="incluir_dp" name="incluir_dp">
+                <option value="sim">Sim — incluir rotinas de DP</option>
+                <option value="nao">Não — sem DP</option>
+              </select>
+            </div>
+            <div class="field" id="campo-qtd-funcionarios">
+              <label for="quantidade_funcionarios">Quantidade de Funcionários</label>
+              <input type="number" id="quantidade_funcionarios" name="quantidade_funcionarios" placeholder="0" min="0" />
+            </div>
+            <div class="field">
+              <label for="incluir_sped">Inclui SPED/Escrituração Digital?</label>
+              <select id="incluir_sped" name="incluir_sped">
+                <option value="sim">Sim — incluir SPED</option>
+                <option value="nao">Não — sem SPED</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="incluir_anexo_certificado">Incluir Anexo 03 (Certificado Digital)?</label>
+              <select id="incluir_anexo_certificado" name="incluir_anexo_certificado">
+                <option value="nao">Não — sem Anexo 03</option>
+                <option value="sim">Sim — incluir termo do certificado</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="field">
+            <label for="observacoes">Observações Internas</label>
+            <textarea id="observacoes" name="observacoes" rows="3" placeholder="Informações internas, não aparecem no contrato..."></textarea>
+          </div>
+        </div>
+
+      </form><!-- /form-individual -->
+
+      <!-- Barra de ações flutuante -->
+      <div class="floating-actions">
+        <button class="btn btn-ghost" onclick="limparFormulario()">
+          <i data-lucide="rotate-ccw"></i> Limpar
+        </button>
+        <button class="btn btn-outline" onclick="previewContrato()">
+          <i data-lucide="eye"></i> Visualizar
+        </button>
+        <button class="btn btn-primary" onclick="gerarContratoIndividual()">
+          <i data-lucide="download"></i> Gerar Contrato .DOCX
+        </button>
+      </div>
+    </section>
+
+    <!-- ══════════════════════
+         ABA: LOTE
+    ══════════════════════ -->
+    <section class="tab-content" id="tab-lote">
+      <div class="section-header">
+        <div>
+          <h2>Importação em Lote</h2>
+          <p class="section-desc">Importe uma planilha e gere todos os contratos de uma vez.</p>
+        </div>
+        <div class="header-actions">
+          <button class="btn btn-outline" onclick="switchTab('planilha')">
+            <i data-lucide="download"></i> Baixar Modelo
+          </button>
+        </div>
+      </div>
+
+      <!-- Zona de upload -->
+      <div class="upload-zone" id="upload-zone"
+           ondrop="handleDrop(event)"
+           ondragover="handleDragOver(event)"
+           ondragleave="handleDragLeave(event)"
+           onclick="document.getElementById('file-input').click()">
+        <input type="file" id="file-input" accept=".xlsx,.csv" style="display:none" onchange="handleFileSelect(event)" />
+        <div class="upload-icon">
+          <i data-lucide="file-spreadsheet"></i>
+        </div>
+        <div class="upload-text">
+          <strong>Arraste a planilha aqui</strong> ou clique para selecionar
+        </div>
+        <div class="upload-hint">Aceita .xlsx e .csv — conforme modelo padrão Êxito</div>
+      </div>
+
+      <!-- Prévia da importação (oculto até upload) -->
+      <div class="import-preview" id="import-preview" style="display:none">
+
+        <!-- Resumo -->
+        <div class="import-stats">
+          <div class="stat-card stat-success">
+            <span class="stat-number" id="stat-validos">0</span>
+            <span class="stat-label">Válidos</span>
+          </div>
+          <div class="stat-card stat-error">
+            <span class="stat-number" id="stat-erros">0</span>
+            <span class="stat-label">Com erros</span>
+          </div>
+          <div class="stat-card stat-warn">
+            <span class="stat-number" id="stat-duplicados">0</span>
+            <span class="stat-label">Duplicados</span>
+          </div>
+          <div class="stat-card stat-info">
+            <span class="stat-number" id="stat-total">0</span>
+            <span class="stat-label">Total</span>
+          </div>
+        </div>
+
+        <!-- Tabela de prévia -->
+        <div class="table-wrapper">
+          <table class="import-table" id="import-table">
+            <thead id="import-table-head"></thead>
+            <tbody id="import-table-body"></tbody>
+          </table>
+        </div>
+
+        <!-- Relatório de erros (oculto se não houver) -->
+        <div id="erros-container" style="display:none">
+          <h4 class="erros-title"><i data-lucide="alert-triangle"></i> Inconsistências encontradas</h4>
+          <ul class="erros-list" id="erros-list"></ul>
+          <button class="btn btn-outline btn-sm" onclick="baixarRelatorioErros()">
+            <i data-lucide="file-down"></i> Baixar relatório de erros .CSV
+          </button>
+        </div>
+
+        <!-- Ações do lote -->
+        <div class="lote-actions">
+          <button class="btn btn-ghost" onclick="limparImportacao()">
+            <i data-lucide="x"></i> Cancelar
+          </button>
+          <button class="btn btn-primary" id="btn-gerar-lote" onclick="gerarContratosLote()">
+            <i data-lucide="package"></i> Gerar Contratos em Lote (.ZIP)
+          </button>
+        </div>
+      </div>
+
+      <!-- Progresso do lote -->
+      <div class="progress-container" id="progress-container" style="display:none">
+        <div class="progress-info">
+          <span id="progress-text">Gerando contratos...</span>
+          <span id="progress-count">0 / 0</span>
+        </div>
+        <div class="progress-bar-track">
+          <div class="progress-bar-fill" id="progress-bar-fill"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ══════════════════════
+         ABA: PREVIEW
+    ══════════════════════ -->
+    <section class="tab-content" id="tab-preview">
+      <div class="section-header">
+        <div>
+          <h2>Pré-visualização do Contrato</h2>
+          <p class="section-desc">Confira como ficará o contrato antes de gerar o arquivo.</p>
+        </div>
+        <div class="header-actions">
+          <button class="btn btn-outline" onclick="switchTab('individual')">
+            <i data-lucide="pencil"></i> Editar Dados
+          </button>
+          <button class="btn btn-primary" onclick="gerarContratoIndividual()">
+            <i data-lucide="download"></i> Gerar .DOCX
+          </button>
+        </div>
+      </div>
+
+      <div class="preview-container" id="preview-container">
+        <div class="preview-empty">
+          <i data-lucide="file-text"></i>
+          <p>Preencha o formulário e clique em <strong>"Visualizar"</strong> para ver o contrato aqui.</p>
+          <button class="btn btn-outline" onclick="switchTab('individual')">
+            Ir para o formulário
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ══════════════════════
+         ABA: PLANILHA MODELO
+    ══════════════════════ -->
+    <section class="tab-content" id="tab-planilha">
+      <div class="section-header">
+        <div>
+          <h2>Modelo da Planilha</h2>
+          <p class="section-desc">Baixe o modelo padrão para preencher e usar na importação em lote.</p>
+        </div>
+        <div class="header-actions">
+          <button class="btn btn-primary" onclick="baixarPlanilhaModelo()">
+            <i data-lucide="download"></i> Baixar Planilha .XLSX
+          </button>
+        </div>
+      </div>
+
+      <div class="planilha-info">
+        <div class="info-card">
+          <i data-lucide="info"></i>
+          <div>
+            <strong>Como usar o modelo</strong>
+            <p>Cada linha da planilha representa 1 contrato. A primeira linha é o cabeçalho — não edite. Preencha a partir da linha 2. Salve no formato <code>.xlsx</code> ou <code>.csv</code>.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="columns-preview">
+        <h3>Colunas da planilha</h3>
+        <div class="columns-grid" id="columns-grid">
+          <!-- preenchido por JS -->
+        </div>
+      </div>
+    </section>
+
+    <!-- ══════════════════════
+         ABA: CONFIGURAÇÕES
+    ══════════════════════ -->
+    <section class="tab-content" id="tab-config">
+      <div class="section-header">
+        <div>
+          <h2>Configurações do Escritório</h2>
+          <p class="section-desc">Valores-padrão aplicados automaticamente em todos os contratos.</p>
+        </div>
+        <div class="header-actions">
+          <button class="btn btn-primary" onclick="salvarConfiguracoes()">
+            <i data-lucide="save"></i> Salvar Configurações
+          </button>
+        </div>
+      </div>
+
+      <div class="form-card">
+        <div class="form-card-header">
+          <div class="form-card-icon"><i data-lucide="sliders"></i></div>
+          <div>
+            <h3>Padrões Contratuais</h3>
+            <p>Esses valores pré-preenchem o formulário para novos contratos</p>
+          </div>
+        </div>
+        <div class="form-grid">
+          <div class="field field-sm">
+            <label>Dia de Vencimento Padrão</label>
+            <input type="number" id="cfg_dia_vencimento" min="1" max="31" value="10" />
+          </div>
+          <div class="field field-sm">
+            <label>Multa por Atraso Padrão</label>
+            <input type="text" id="cfg_multa_atraso" value="2%" />
+          </div>
+          <div class="field field-sm">
+            <label>Juros por Atraso Padrão</label>
+            <input type="text" id="cfg_juros_atraso" value="1% ao mês" />
+          </div>
+          <div class="field field-sm">
+            <label>Prazo Suspensão (dias)</label>
+            <input type="number" id="cfg_prazo_suspensao" value="30" />
+          </div>
+          <div class="field field-sm">
+            <label>Qtd. Mensalidades Mora</label>
+            <input type="number" id="cfg_qtd_mora" value="3" />
+          </div>
+          <div class="field field-sm">
+            <label>Piso Mínimo Reajuste (%)</label>
+            <input type="text" id="cfg_percentual_reajuste" value="7%" />
+          </div>
+          <div class="field field-sm">
+            <label>Índice de Reajuste</label>
+            <input type="text" id="cfg_indice_reajuste" value="IPCA" />
+          </div>
+          <div class="field field-sm">
+            <label>Dia da 13ª Parcela</label>
+            <input type="number" id="cfg_dia_13" value="20" min="1" max="31" />
+          </div>
+          <div class="field">
+            <label>Prazo Inicial de Vigência</label>
+            <input type="text" id="cfg_prazo_vigencia" value="12 (doze) meses" />
+          </div>
+          <div class="field">
+            <label>Aviso Prévio para Rescisão</label>
+            <input type="text" id="cfg_prazo_rescisao" value="30 (trinta) dias" />
+          </div>
+          <div class="field">
+            <label>Cidade da Assinatura</label>
+            <input type="text" id="cfg_cidade_assinatura" value="João Pessoa" />
+          </div>
+          <div class="field field-xs">
+            <label>UF Assinatura</label>
+            <input type="text" id="cfg_uf_assinatura" value="PB" maxlength="2" oninput="this.value=this.value.toUpperCase()" />
+          </div>
+          <div class="field field-lg">
+            <label>Foro Contratual</label>
+            <input type="text" id="cfg_foro" value="Comarca de João Pessoa/PB" />
+          </div>
+        </div>
+      </div>
+
+      <!-- Info sobre o modelo .docx -->
+      <div class="form-card">
+        <div class="form-card-header">
+          <div class="form-card-icon"><i data-lucide="file-cog"></i></div>
+          <div>
+            <h3>Modelo do Contrato (.docx)</h3>
+            <p>Arquivo Word com os placeholders que será preenchido automaticamente</p>
+          </div>
+        </div>
+        <div class="docx-upload-area">
+          <div class="docx-info">
+            <i data-lucide="file-text"></i>
+            <div>
+              <strong id="docx-nome-arquivo">modelo-contrato.docx</strong>
+              <span id="docx-status">Carregue o arquivo .docx com os placeholders {{campo}}</span>
+            </div>
+          </div>
+          <label class="btn btn-outline" for="docx-input">
+            <i data-lucide="upload"></i> Carregar Modelo
+          </label>
+          <input type="file" id="docx-input" accept=".docx" style="display:none" onchange="carregarModeloDocx(event)" />
+        </div>
+        <div class="info-card" style="margin-top: 1rem;">
+          <i data-lucide="lightbulb"></i>
+          <div>
+            <strong>Como preparar o modelo .docx</strong>
+            <p>No seu Word, substitua os campos variáveis pelos placeholders entre chaves duplas. Ex: onde estava o nome do cliente, coloque <code>{{razao_social}}</code>. Veja a lista completa de placeholders abaixo.</p>
+          </div>
+        </div>
+        <div class="placeholders-lista" id="placeholders-lista">
+          <!-- preenchido por JS -->
+        </div>
+      </div>
+    </section>
+
+  </main><!-- /main-content -->
+
+  <!-- ══════════════════════
+       TOAST DE NOTIFICAÇÃO
+  ══════════════════════ -->
+  <div class="toast-container" id="toast-container"></div>
+
+  <!-- Scripts da aplicação -->
+  <script src="js/utils.js"></script>
+  <script src="js/validations.js"></script>
+  <script src="js/geracao-contrato.js"></script>
+  <script src="js/importacao-lote.js"></script>
+  <script src="js/preview.js"></script>
+  <script src="js/app.js"></script>
+
+</body>
+</html>
